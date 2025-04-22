@@ -4,16 +4,17 @@ from PIL import Image
 import os
 
 class Fire(GameObject):
-    def __init__(self, x, y, width=60, height=40, direction=1, speed=8, distance=200):
+    def __init__(self, x, y, width=60, height=40, direction=1, speed=8, distance=200, is_enemy=False):
         super().__init__(x, y, width, height)
-        self.direction = direction  # 1 for right, -1 for left
+        self.direction = direction
         self.animation_frame = 0
         self.is_active = True
-        self.animation_speed = 3  # Update every 3 frames
+        self.animation_speed = 3
         self.animation_timer = 0
-        self.speed = speed  # Speed of fire movement
-        self.start_x = x  # Starting x position
+        self.speed = speed
+        self.start_x = x
         self.max_distance = distance
+        self.is_enemy = is_enemy
         
         # Load fire frames
         self.loadFrames()
@@ -21,10 +22,9 @@ class Fire(GameObject):
         # Position fire based on direction
         self.offsetX = 40 if direction > 0 else -40
         self.x += self.offsetX
-        self.start_x = self.x  # Update start_x with the offset
+        self.start_x = self.x
         
     def loadFrames(self):
-        """Load fire animation frames"""
         self.fire_frames = []
         fire_dir = 'assets/split_fire'
         
@@ -49,7 +49,6 @@ class Fire(GameObject):
         print(f"Loaded {self.total_frames} fire frames")
     
     def update(self):
-        """Update fire animation"""
         self.animation_timer += 1
         
         # Move fire in the direction it's facing
@@ -64,19 +63,24 @@ class Fire(GameObject):
         if self.animation_timer % self.animation_speed == 0:
             self.animation_frame += 1
             
-            # Deactivate when animation completes
+            # Loop the animation while moving
             if self.animation_frame >= self.total_frames:
-                # Loop the animation while moving
                 self.animation_frame = 0
     
     def draw(self):
-        """Draw the fire animation"""
         if not self.is_active or len(self.fire_frames) == 0:
             return
         
         # Ensure frame index is valid
         frame_index = min(self.animation_frame, len(self.fire_frames) - 1)
         
-        # Draw the fire
-        drawImage(self.fire_frames[frame_index], self.x, self.y, 
-                 width=self.width, height=self.height, align='center') 
+        # Draw the fire - use red tint for enemy fire
+        if self.is_enemy:
+            # Draw with red tint for enemy fire
+            drawImage(self.fire_frames[frame_index], self.x, self.y, 
+                    width=self.width, height=self.height, align='center', opacity=100, 
+                    rotateAngle=0) 
+        else:
+            # Normal fire for player
+            drawImage(self.fire_frames[frame_index], self.x, self.y, 
+                    width=self.width, height=self.height, align='center') 

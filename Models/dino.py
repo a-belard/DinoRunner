@@ -23,6 +23,13 @@ class Dino(GameObject):
         self.deathAnimationFrame = 0
         self.deathAnimationComplete = False
         
+        # Health and damage attributes
+        self.maxHealth = 100
+        self.health = self.maxHealth
+        self.isInvulnerable = False
+        self.invulnerabilityTimer = 0
+        self.invulnerabilityDuration = 60  # 1 second of invulnerability after taking damage
+        
         self.moveD = 5
         
         self.originalHeight = self.height
@@ -111,7 +118,11 @@ class Dino(GameObject):
             self.y = self.groundY - self.height
     
     def attack(self):
-        if not self.isDead and not self.isAttacking and self.total_fires_used < self.max_fire_count:
+        # Check if player can attack based on level and fire usage
+        # In level 2 (battle mode), allow unlimited attacks, otherwise check fire count
+        can_attack = (self.app.level == 2) or (self.total_fires_used < self.max_fire_count)
+        
+        if not self.isDead and not self.isAttacking and can_attack:
             self.isAttacking = True
             self.isRunning = False
             self.isIdle = False
@@ -210,36 +221,52 @@ class Dino(GameObject):
         if len(self.active_fires) == 0:
             self.current_fire_count = 0
 
+        # Handle invulnerability timer
+        if self.isInvulnerable:
+            self.invulnerabilityTimer += 1
+            if self.invulnerabilityTimer >= self.invulnerabilityDuration:
+                self.isInvulnerable = False
+                self.invulnerabilityTimer = 0
+
     def draw(self):        
+        # Flash effect when invulnerable - only apply in battle mode (level 2)
+        opacity = None
+        if self.isInvulnerable and self.invulnerabilityTimer % 10 < 5 and self.app.level == 2:
+            opacity = 0.5
+        
         if self.isDead:
             self.drawDead()
         elif self.isAttacking:
-            self.drawAttack()
+            self.drawAttack(opacity)
         elif self.isJumping:
-            self.drawJump()
+            self.drawJump(opacity)
         elif self.isIdle:
-            self.drawIdle()
+            self.drawIdle(opacity)
         else:
             self.isRunning = True
-            self.drawRun()
+            self.drawRun(opacity)
             
         # Draw active fires
         for fire in self.active_fires:
             fire.draw()
+        
+        # Draw health bar if in battle mode (level 2)
+        if self.app.level == 2 and not self.isDead:
+            self.drawHealthBar()
 
-    def drawRun(self):
+    def drawRun(self, opacity=100):
         frameIndex = self.state_frame_index % len(self.walking_frames)
         
         if self.isFacingRight:
-            drawImage(self.walking_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.walking_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
         else:
-            drawImage(self.left_walking_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.left_walking_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
 
-    def drawJump(self):
+    def drawJump(self, opacity=100):
         if self.isFacingRight:
-            drawImage(self.idle_frames[0], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.idle_frames[0], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
         else:
-            drawImage(self.left_idle_frames[0], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.left_idle_frames[0], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
 
     def drawDuck(self):
         pass
@@ -251,20 +278,20 @@ class Dino(GameObject):
         else:
             drawImage(self.left_die_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
 
-    def drawIdle(self):
+    def drawIdle(self, opacity=100):
         if len(self.idle_frames) == 0:
             return
             
         frameIndex = self.state_frame_index % len(self.idle_frames)
         
         if self.isFacingRight:
-            drawImage(self.idle_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.idle_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
         else:
-            drawImage(self.left_idle_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.left_idle_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
             
-    def drawAttack(self):
+    def drawAttack(self, opacity=100):
         if len(self.attack_frames) == 0:
-            self.drawRun()
+            self.drawRun(opacity)
             return
             
         # Make sure the frame index doesn't exceed the number of frames
@@ -274,9 +301,9 @@ class Dino(GameObject):
         # drawLabel("ATTACK", self.x, self.y - 20, fill='red', bold=True)
         
         if self.isFacingRight:
-            drawImage(self.attack_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.attack_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
         else:
-            drawImage(self.left_attack_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left')
+            drawImage(self.left_attack_frames[frameIndex], self.x, self.y, width=self.width, height=self.height, align='top-left', opacity=100)
 
     def startDeathAnimation(self):
         self.isDead = True
@@ -296,7 +323,10 @@ class Dino(GameObject):
         fire = Fire(x=mouth_x, y=mouth_y, width=60, height=40, direction=direction)
         self.active_fires.append(fire)
         self.current_fire_count += 1
-        self.total_fires_used += 1  # Increment permanent counter
+        
+        # Only count fires used in level 1, level 2 has unlimited
+        if self.app.level != 2:
+            self.total_fires_used += 1  # Increment permanent counter
 
     def getStateFrames(self):
         if self.isDead and len(self.die_frames) > 0:
@@ -307,5 +337,51 @@ class Dino(GameObject):
             return self.idle_frames if self.isFacingRight else self.left_idle_frames
         else:
             return self.walking_frames if self.isFacingRight else self.left_walking_frames
+
+    def takeDamage(self, amount):
+        """Take damage if not invulnerable"""
+        if self.isInvulnerable or self.isDead:
+            return False
+        
+        self.health -= amount
+        print(f"Player took {amount} damage! Health: {self.health}/{self.maxHealth}")
+        
+        # Make invulnerable briefly
+        self.isInvulnerable = True
+        self.invulnerabilityTimer = 0
+        
+        # Check if dead
+        if self.health <= 0:
+            self.health = 0
+            self.isDead = True
+            self.startDeathAnimation()
+        
+        return self.isDead
+
+    def drawHealthBar(self):
+        """Draw a health bar above the player"""
+        barWidth = 60
+        barHeight = 8
+        
+        # Position above the dino
+        barX = self.x + (self.width - barWidth) / 2
+        barY = self.y - 20
+        
+        # Draw background
+        drawRect(barX, barY, barWidth, barHeight, fill='darkRed')
+        
+        # Draw health
+        healthWidth = (self.health / self.maxHealth) * barWidth
+        if healthWidth > 0:
+            healthColor = 'green'
+            if self.health < self.maxHealth * 0.3:
+                healthColor = 'red'
+            elif self.health < self.maxHealth * 0.6:
+                healthColor = 'yellow'
+            
+            drawRect(barX, barY, healthWidth, barHeight, fill=healthColor)
+        
+        # Draw border
+        drawRect(barX, barY, barWidth, barHeight, fill=None, border='black')
 
 

@@ -1,0 +1,7 @@
+setting,value
+enemies_count,3
+life,100
+damage,20
+enemy_fire_damage,15
+player_fire_damage,25
+spawn_interval,300

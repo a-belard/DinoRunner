@@ -20,19 +20,28 @@ class GameView:
         bgImage = Image.open('assets/bg.jpg')
         self.backgroundImage = CMUImage(bgImage)
         
-
+        # Load fire icon for UI
         fire_icon_path = 'assets/split_fire/0.gif'  # Using the first fire frame as icon
         fire_icon = Image.open(fire_icon_path)
         self.fire_icon = CMUImage(fire_icon)
 
-        
         # Level selection buttons
         self.levelButtons = [
             {'x': app.width//2, 'y': app.height//2 + 20, 'width': 120, 'height': 40, 'level': 1, 'text': 'Easy'},
             {'x': app.width//2, 'y': app.height//2 + 80, 'width': 120, 'height': 40, 'level': 2, 'text': 'Battle'},
             # {'x': app.width//2, 'y': app.height//2 + 140, 'width': 120, 'height': 40, 'level': 3, 'text': 'Hard'}
         ]
+        
+        # Controls button
+        self.controlsButton = {
+            'x': app.width//2,
+            'y': app.height//2 + 140,
+            'width': 120,
+            'height': 40,
+            'text': 'Controls'
+        }
 
+        # Initialize keyboard buttons
         keys = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'R']
         self.keyButtons = {}
         for i, key in enumerate(keys):
@@ -50,14 +59,23 @@ class GameView:
             key.height = height
             key.draw()
 
-
     def draw(self):
         # Draw environment only when not showing special screens
-        if not self.app.isStartScreen and not self.app.isLevelComplete and not self.app.isGameOver:
+        if not self.app.isStartScreen and not self.app.isLevelComplete and not self.app.isGameOver and not self.app.isControlsScreen:
             self.model.environment.draw()
             
-            # Draw obstacles
-            self.model.obstacleManager.draw()
+            # Draw obstacles or enemies based on level
+            if self.app.level == 1:
+                # Draw obstacles
+                self.model.obstacleManager.draw()
+            else:
+                # Draw enemies - make sure they're drawn in level 2
+                if hasattr(self.model, 'enemyManager'):
+                    self.model.enemyManager.draw()
+                    # Force spawn an enemy if none exist
+                    if len(self.model.enemyManager.enemies) == 0 and self.app.level == 2:
+                        print("No enemies found in level 2! Forcing enemy spawn...")
+                        self.model.enemyManager.spawn_enemy()
             
             # Draw the dinosaur
             self.model.dino.draw()
@@ -73,12 +91,14 @@ class GameView:
         ##################################
 
         # Draw UI elements pause, score, level
-        if not self.app.isStartScreen:
+        if not self.app.isStartScreen and not self.app.isControlsScreen:
             self.drawUI()
         
         # Draw overlays if needed - draw level complete LAST to ensure it's on top
         if self.app.isStartScreen:
             self.drawStartScreen()
+        elif self.app.isControlsScreen:
+            self.drawControlsScreen()
         elif self.app.isPaused and not self.app.isGameOver:
             self.drawPaused()
         elif self.app.isGameOver:
@@ -120,12 +140,64 @@ class GameView:
                      fill=self.startScreenTextColor,
                      size=20, bold=isCurrent)
         
-        # Draw instructions
-        drawLabel("Use UP/DOWN to select level", self.model.width//2, 
-                 self.model.height - 80, size=18, fill=self.startScreenTextColor)
-        
+        # Draw Controls button
+        drawRect(self.controlsButton['x'] - self.controlsButton['width']//2, 
+                self.controlsButton['y'] - self.controlsButton['height']//2,
+                self.controlsButton['width'], self.controlsButton['height'],
+                fill=rgb(40, 40, 140),
+                border=self.startScreenTextColor,
+                borderWidth=2)
+        drawLabel(self.controlsButton['text'], self.controlsButton['x'], self.controlsButton['y'],
+                 fill=self.startScreenTextColor,
+                 size=20, bold=False)
+                 
+        # Single instruction at the bottom
         drawLabel("Press ENTER to start", self.model.width//2, 
                  self.model.height - 50, size=18, fill=self.startScreenTextColor)
+    
+    def drawControlsScreen(self):
+        # Draw background image
+        if self.backgroundImage:
+            drawImage(self.backgroundImage, 0, 0, width=self.model.width, height=self.model.height)
+        
+        drawRect(0, 0, self.model.width, self.model.height, fill="black", opacity=70)
+
+        # Draw title
+        drawLabel("GAME CONTROLS", self.model.width//2, 
+                 self.model.height//2 - 180, size=40, 
+                 fill="white", bold=True)
+        
+        # Draw control instructions
+        controls = [
+            {"key": "W / UP", "action": "Jump"},
+            {"key": "S / DOWN", "action": "Duck"},
+            {"key": "A / LEFT", "action": "Move Left"},
+            {"key": "D / RIGHT", "action": "Move Right"},
+            {"key": "SPACE", "action": "Attack (Shoot Fire)"},
+            {"key": "R", "action": "Restart Game"}
+        ]
+        
+        startY = self.model.height//2 - 100
+        spacing = 50
+        
+        for i, control in enumerate(controls):
+            # Draw key
+            drawRect(self.model.width//2 - 180, startY + i * spacing - 15, 100, 30, 
+                    fill=rgb(40, 40, 140), border='white')
+            drawLabel(control["key"], self.model.width//2 - 130, startY + i * spacing, 
+                     fill='white', size=16, bold=True)
+            
+            # Draw action
+            drawLabel(control["action"], self.model.width//2 + 20, startY + i * spacing, 
+                     fill='white', size=18, align='left')
+
+            
+        # Back button
+        backButtonY = self.model.height - 50
+        drawRect(self.model.width//2 - 60, backButtonY - 15, 120, 30, 
+                fill=rgb(40, 40, 140), border='white', borderWidth=2)
+        drawLabel("Back to Menu", self.model.width//2, backButtonY, 
+                fill='white', size=14)
     
     def drawUI(self):
         # Score
@@ -143,35 +215,39 @@ class GameView:
                  self.model.width//2, 30, size=20,
                  fill=self.textColor, align='center', bold=True)
         
-        # Fire attacks counter with icon
+        # Fire attacks counter
         remaining_attacks = self.model.dino.max_fire_count - self.model.dino.total_fires_used
         
-        # Position for the fire icon and count
+        # Position for fire icon and count
         icon_x = self.model.width - 120
         icon_y = 60
         count_x = self.model.width - 95
         count_y = 60
         
-        # Draw fire icon (image)
+        # Draw fire icon
         drawImage(self.fire_icon, icon_x, icon_y, width=40, height=35, align='center')
 
-        # Draw the count
-        drawLabel(f": {remaining_attacks}", count_x, count_y, size=20,
-                 fill="red" if remaining_attacks == 0 else self.textColor, align='left', bold=True)
+        # Draw count - show "∞" for unlimited in level 2
+        if self.app.level == 2:
+            drawLabel(": ∞", count_x, count_y, size=20, 
+                    fill="gold", align='left', bold=True)
+        else:
+            drawLabel(f": {remaining_attacks}", count_x, count_y, size=20,
+                    fill="red" if remaining_attacks == 0 else self.textColor, 
+                    align='left', bold=True)
         
-        # Obstacle counts
+        # Show obstacle counts during gameplay
         if not self.app.isStartScreen and not self.app.isGameOver and not self.app.isPaused:
             self.drawObstacleCounts()
     
     def drawPaused(self):
-        # Draw background image
+        # Draw background
         if self.backgroundImage:
             drawImage(self.backgroundImage, 0, 0, width=self.model.width, height=self.model.height, opacity=70)
         else:
-            # Fallback to rectangle if image not available
             drawRect(0, 0, self.model.width, self.model.height, fill='black', opacity=50)
         
-        # Draw pause text
+        # Pause text and instructions
         drawLabel("PAUSED", self.model.width//2, self.model.height//2, 
                  size=40, fill='white', bold=True)
         drawLabel("Press ESC to resume", self.model.width//2, 
@@ -180,18 +256,16 @@ class GameView:
                  self.model.height//2 + 80, size=20, fill='white')
     
     def drawGameOver(self):
-        # Draw background image
+        # Draw background
         if self.backgroundImage:
             drawImage(self.backgroundImage, 0, 0, width=self.app.width, height=self.app.height)
             drawRect(0, 0, self.app.width, self.app.height, fill='red', opacity=60)
         else:
-            # Fallback to rectangle if image not available
             drawRect(0, 0, self.app.width, self.app.height, fill='black', opacity=70)
         
-        # Draw game over text
+        # Game over text and score
         drawLabel("GAME OVER", self.model.width//2, 120, 
                  size=40, fill='white', bold=True)
-        
         
         drawLabel(f"{int(self.model.score)}", self.model.width//2, 
                  self.model.height//2 + 10, size=60, fill='white')
@@ -204,30 +278,27 @@ class GameView:
                  self.model.height - 100, width=50, height=50)
 
     def drawLevelComplete(self):
-        # Draw full background image like the start screen
+        # Draw background
         if self.backgroundImage:
             drawImage(self.backgroundImage, 0, 0, width=self.app.width, height=self.app.height)
-            # green overlay
             drawRect(0, 0, self.app.width, self.app.height, fill='green', opacity=30)
         else:
-            # Fallback to solid color if image not available
             drawRect(0, 0, self.app.width, self.app.height, fill='darkgreen')
         
-        # Draw large banner in center
+        # Draw banner
         bannerHeight = 300
         drawRect(0, self.app.height/2 - bannerHeight/2, self.app.width, bannerHeight, fill='black', opacity=70)
         
-        # Draw level complete text
+        # Level complete text
         level = self.model.currentLevel
         drawLabel(f"LEVEL {level} COMPLETE!", self.model.width//2, self.app.height/2 - 100, 
                  size=40, fill='white', bold=True)
         
-        # Next level or continue button
-        if self.app.level < 2:  # If there's a next level
+        # Next level or finish
+        if self.app.level < 2:
             drawLabel("Press ENTER to continue to next level", self.model.width//2, 
                      self.app.height/2 + 80, size=22, fill='white', bold=True)
-        # If this was the last level
-        else:  
+        else:
             drawRect(self.model.width//2 - 200, self.app.height/2 + 50, 400, 60, 
                     fill='green', opacity=70, border='white', borderWidth=2)
             drawLabel("Congratulations! All levels completed!", self.model.width//2, 
