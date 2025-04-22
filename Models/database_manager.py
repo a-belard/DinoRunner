@@ -9,6 +9,7 @@ if not os.path.exists("data"):
 # files (form of a database)
 LEVEL_1_FILE = "data/level_1.csv"
 LEVEL_2_FILE = "data/level_2.csv"
+BATTLE_FILE = "data/battle.csv"
 HIGHSCORE_FILE = "data/highscore.csv"
 
 # Default settings for Level 1
@@ -37,6 +38,16 @@ DEFAULT_LEVEL_2 = {
     "meteorCount": 15
 }
 
+# Default settings for Battle mode
+DEFAULT_BATTLE = {
+    "enemies_count": 3,
+    "life": 100,
+    "damage": 20,
+    "enemy_fire_damage": 15,
+    "player_fire_damage": 25,
+    "spawn_interval": 300
+}
+
 # Create the level 1 settings file if it doesn't exist
 def create_level_1_file():
     with open(LEVEL_1_FILE, "w", newline="") as file:
@@ -53,6 +64,14 @@ def create_level_2_file():
         for key, value in DEFAULT_LEVEL_2.items():
             writer.writerow([key, value])
 
+# Create the battle settings file if it doesn't exist
+def create_battle_file():
+    with open(BATTLE_FILE, "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["setting", "value"])
+        for key, value in DEFAULT_BATTLE.items():
+            writer.writerow([key, value])
+
 # Create the highscore file if it doesn't exist
 def create_highscore_file():
     with open(HIGHSCORE_FILE, "w", newline="") as file:
@@ -65,6 +84,9 @@ if not os.path.exists(LEVEL_1_FILE):
 
 if not os.path.exists(LEVEL_2_FILE):
     create_level_2_file()
+
+if not os.path.exists(BATTLE_FILE):
+    create_battle_file()
 
 if not os.path.exists(HIGHSCORE_FILE):
     create_highscore_file()
@@ -132,3 +154,35 @@ def update_highscore(score):
         writer.writerow(["highscore"]) 
         writer.writerow([score])  
     return True 
+
+def get_battle_settings():
+    """Get enemy and battle settings"""
+    settings = DEFAULT_BATTLE.copy()
+    
+    try:
+        with open(BATTLE_FILE, "r") as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip header
+            
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                    
+                key = row[0].strip()
+                value = row[1].strip()
+                
+                if key in ["enemies_count", "life", "damage", "enemy_fire_damage", "player_fire_damage", "spawn_interval"]:
+                    settings[key] = int(value)
+                else:
+                    settings[key] = value
+    except Exception as e:
+        print(f"Error loading battle settings: {e}")
+    
+    return {
+        "enemies_count": settings.get("enemies_count", 3),
+        "life": settings.get("life", 100),
+        "damage": settings.get("damage", 20),
+        "enemy_fire_damage": settings.get("enemy_fire_damage", 15),
+        "player_fire_damage": settings.get("player_fire_damage", 25),
+        "spawn_interval": settings.get("spawn_interval", 300)
+    } 
