@@ -1,0 +1,11 @@
+setting,value
+name,Battle
+spawnInterval,80
+cactusSpeed,6
+birdSpeed,7
+birdProbability,0.5
+meteorProbability,0.3
+birdCount,15
+cactusCount,15
+meteorCount,15
+maxFireCount,5

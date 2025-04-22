@@ -1,0 +1,8 @@
+/cmu_graphics
+
+*.pyc
+**/*.pyc
+
+*.pyo
+**/*.pyo
+

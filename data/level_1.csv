@@ -1,0 +1,11 @@
+setting,value
+name,Easy
+spawnInterval,50
+cactusSpeed,4
+birdSpeed,5
+birdProbability,0.3
+meteorProbability,0.2
+birdCount,1
+cactusCount,1
+meteorCount,1
+maxFireCount,2
